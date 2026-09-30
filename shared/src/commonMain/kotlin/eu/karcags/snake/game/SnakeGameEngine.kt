@@ -1,6 +1,8 @@
 package eu.karcags.snake.game
 
 import eu.karcags.snake.model.*
+import eu.karcags.snake.storage.HighScoreStorage
+import eu.karcags.snake.storage.createDefaultHighScoreStorage
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -8,7 +10,8 @@ import kotlin.random.Random
 
 class SnakeGameEngine(
     private val random: Random = Random.Default,
-    initialHighScore: Int = 0,
+    initialHighScore: Int? = null,
+    val highScoreStorage: HighScoreStorage = createDefaultHighScoreStorage(),
     private val initialSnakeProvider: ((GameConfig) -> List<Position>)? = null,
     private val foodProvider: ((List<Position>, Int, Int) -> Position?)? = null,
     private val initialSpecialItemProvider: ((GameConfig) -> SpecialItem?)? = null,
@@ -32,7 +35,16 @@ class SnakeGameEngine(
         return itemLifetimeSupplier?.invoke() ?: 35
     }
 
-    private fun createInitialState(config: GameConfig, highScore: Int): GameState {
+    fun getHighScores(): Map<Difficulty, Int> = highScoreStorage.getAllHighScores()
+
+    fun getHighScore(difficulty: Difficulty): Int = highScoreStorage.getHighScore(difficulty)
+
+    private fun resolveHighScore(config: GameConfig, explicitHighScore: Int? = null): Int {
+        val stored = highScoreStorage.getHighScore(config.difficulty)
+        return maxOf(stored, explicitHighScore ?: 0)
+    }
+
+    private fun createInitialState(config: GameConfig, explicitHighScore: Int? = null): GameState {
         val initialSnake = initialSnakeProvider?.invoke(config) ?: run {
             val midX = config.gridWidth / 2
             val midY = config.gridHeight / 2
@@ -45,6 +57,8 @@ class SnakeGameEngine(
         val initialFood = spawnFood(initialSnake, config.gridWidth, config.gridHeight)
             ?: Position((initialSnake.first().x + 4) % config.gridWidth, initialSnake.first().y)
         val initialSpecial = initialSpecialItemProvider?.invoke(config)
+
+        val highScore = resolveHighScore(config, explicitHighScore)
 
         return GameState(
             snake = initialSnake,
@@ -76,6 +90,8 @@ class SnakeGameEngine(
             ?: Position((initialSnake.first().x + 3) % config.gridWidth, initialSnake.first().y)
         val initialSpecial = initialSpecialItemProvider?.invoke(config)
 
+        val highScore = resolveHighScore(config)
+
         _gameState.value = GameState(
             snake = initialSnake,
             direction = Direction.RIGHT,
@@ -83,7 +99,7 @@ class SnakeGameEngine(
             specialItem = initialSpecial,
             activeEffects = emptyList(),
             score = 0,
-            highScore = _gameState.value.highScore,
+            highScore = highScore,
             status = GameStatus.PLAYING,
             config = config,
             isNewHighScore = false
@@ -215,6 +231,9 @@ class SnakeGameEngine(
 
         val isNewHigh = newScore > current.highScore
         val newHighScore = maxOf(current.highScore, newScore)
+        if (isNewHigh) {
+            highScoreStorage.saveHighScore(config.difficulty, newHighScore)
+        }
 
         val newFood = if (isEatingFood) {
             spawnFood(newSnake, config.gridWidth, config.gridHeight, nextSpecialItem?.position) ?: current.food
@@ -235,6 +254,9 @@ class SnakeGameEngine(
     }
 
     private fun handleGameOver(current: GameState) {
+        if (current.score > current.highScore) {
+            highScoreStorage.saveHighScore(current.config.difficulty, current.score)
+        }
         _gameState.value = current.copy(
             status = GameStatus.GAME_OVER
         )
@@ -266,9 +288,14 @@ class SnakeGameEngine(
 
     fun returnToMenu() {
         val current = _gameState.value
+        if (current.score > current.highScore) {
+            highScoreStorage.saveHighScore(current.config.difficulty, current.score)
+        }
         pendingDirections.clear()
+        val refreshedHighScore = resolveHighScore(current.config)
         _gameState.value = current.copy(
             status = GameStatus.MENU,
+            highScore = refreshedHighScore,
             specialItem = null,
             activeEffects = emptyList()
         )

@@ -24,12 +24,14 @@ fun MainMenuScreen(
     highScore: Int,
     initialConfig: GameConfig,
     onStartGame: (GameConfig) -> Unit,
+    highScores: Map<Difficulty, Int> = emptyMap(),
     modifier: Modifier = Modifier
 ) {
     var selectedDifficulty by remember { mutableStateOf(initialConfig.difficulty) }
     var selectedGridSize by remember { mutableStateOf(initialConfig.gridWidth) }
 
     val scrollState = rememberScrollState()
+    val currentDifficultyHighScore = highScores[selectedDifficulty] ?: if (selectedDifficulty == initialConfig.difficulty) highScore else 0
 
     Box(
         modifier = modifier
@@ -86,7 +88,7 @@ fun MainMenuScreen(
                 }
 
                 // High score badge
-                if (highScore > 0) {
+                if (currentDifficultyHighScore > 0) {
                     Box(
                         modifier = Modifier
                             .clip(RoundedCornerShape(10.dp))
@@ -100,7 +102,7 @@ fun MainMenuScreen(
                         ) {
                             Text("🏆", fontSize = 16.sp)
                             Text(
-                                text = "High Score: $highScore",
+                                text = "High Score (${selectedDifficulty.label}): $currentDifficultyHighScore",
                                 color = SnakeColors.AccentGold,
                                 fontSize = 14.sp,
                                 fontWeight = FontWeight.Bold

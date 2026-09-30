@@ -2,15 +2,39 @@ package eu.karcags.snake
 
 import eu.karcags.snake.game.SnakeGameEngine
 import eu.karcags.snake.model.*
+import eu.karcags.snake.storage.HighScoreStorage
+import eu.karcags.snake.storage.InMemoryHighScoreStorage
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 
 class SnakeGameEngineTest {
 
+    private fun createEngine(
+        initialHighScore: Int? = null,
+        highScoreStorage: HighScoreStorage = InMemoryHighScoreStorage(),
+        initialSnakeProvider: ((GameConfig) -> List<Position>)? = null,
+        foodProvider: ((List<Position>, Int, Int) -> Position?)? = null,
+        initialSpecialItemProvider: ((GameConfig) -> SpecialItem?)? = null,
+        specialItemProvider: ((GameState) -> SpecialItem?)? = null,
+        spawnCooldownSupplier: (() -> Int)? = null,
+        itemLifetimeSupplier: (() -> Int)? = null
+    ): SnakeGameEngine {
+        return SnakeGameEngine(
+            initialHighScore = initialHighScore,
+            highScoreStorage = highScoreStorage,
+            initialSnakeProvider = initialSnakeProvider,
+            foodProvider = foodProvider,
+            initialSpecialItemProvider = initialSpecialItemProvider,
+            specialItemProvider = specialItemProvider,
+            spawnCooldownSupplier = spawnCooldownSupplier,
+            itemLifetimeSupplier = itemLifetimeSupplier
+        )
+    }
+
     @Test
     fun testInitialState() {
-        val engine = SnakeGameEngine(initialHighScore = 50)
+        val engine = createEngine(initialHighScore = 50)
         val state = engine.gameState.value
 
         assertEquals(GameStatus.MENU, state.status)
@@ -22,7 +46,7 @@ class SnakeGameEngineTest {
 
     @Test
     fun testStartGame() {
-        val engine = SnakeGameEngine()
+        val engine = createEngine()
         val config = GameConfig(gridWidth = 10, gridHeight = 10, difficulty = Difficulty.HARD)
         engine.startNewGame(config)
 
@@ -38,7 +62,7 @@ class SnakeGameEngineTest {
 
     @Test
     fun testSnakeMovesForward() {
-        val engine = SnakeGameEngine()
+        val engine = createEngine()
         val config = GameConfig(gridWidth = 10, gridHeight = 10)
         engine.startNewGame(config)
 
@@ -53,7 +77,7 @@ class SnakeGameEngineTest {
 
     @Test
     fun testChangeDirectionAndPrevent180Turn() {
-        val engine = SnakeGameEngine()
+        val engine = createEngine()
         engine.startNewGame(GameConfig(10, 10))
 
         // Moving RIGHT initially. Trying to turn LEFT should be ignored
@@ -74,7 +98,7 @@ class SnakeGameEngineTest {
 
     @Test
     fun testWallCollisionTriggersGameOver() {
-        val engine = SnakeGameEngine()
+        val engine = createEngine()
         val config = GameConfig(gridWidth = 6, gridHeight = 6)
         engine.startNewGame(config)
 
@@ -95,7 +119,7 @@ class SnakeGameEngineTest {
         var currentFoodIndex = 0
         val foodList = listOf(Position(6, 5), Position(7, 5))
 
-        val engine = SnakeGameEngine(
+        val engine = createEngine(
             initialSnakeProvider = { testSnake },
             foodProvider = { _, _, _ ->
                 foodList[currentFoodIndex++]
@@ -137,7 +161,7 @@ class SnakeGameEngineTest {
             Position(5, 4),
             Position(6, 4)
         )
-        val engine = SnakeGameEngine(
+        val engine = createEngine(
             initialSnakeProvider = { testSnake },
             foodProvider = { _, _, _ -> Position(0, 0) }
         )
@@ -153,7 +177,7 @@ class SnakeGameEngineTest {
     @Test
     fun testRapidDirectionInputBuffering() {
         val testSnake = listOf(Position(5, 5), Position(4, 5), Position(3, 5))
-        val engine = SnakeGameEngine(
+        val engine = createEngine(
             initialSnakeProvider = { testSnake },
             foodProvider = { _, _, _ -> Position(0, 0) }
         )
@@ -176,7 +200,7 @@ class SnakeGameEngineTest {
 
     @Test
     fun testGetTickIntervalMsDecreasesWithScore() {
-        val engine = SnakeGameEngine()
+        val engine = createEngine()
         engine.startNewGame(GameConfig(difficulty = Difficulty.MEDIUM))
         val initialInterval = engine.getTickIntervalMs()
         assertEquals(Difficulty.MEDIUM.initialTickMs, initialInterval)
@@ -184,7 +208,7 @@ class SnakeGameEngineTest {
 
     @Test
     fun testPauseAndResume() {
-        val engine = SnakeGameEngine()
+        val engine = createEngine()
         engine.startNewGame()
 
         assertEquals(GameStatus.PLAYING, engine.gameState.value.status)
@@ -203,7 +227,7 @@ class SnakeGameEngineTest {
 
     @Test
     fun testReturnToMenu() {
-        val engine = SnakeGameEngine()
+        val engine = createEngine()
         engine.startNewGame()
         assertEquals(GameStatus.PLAYING, engine.gameState.value.status)
 
@@ -213,7 +237,7 @@ class SnakeGameEngineTest {
 
     @Test
     fun testSelfCollision() {
-        val engine = SnakeGameEngine()
+        val engine = createEngine()
         // Snake of length 5: loop back into itself
         engine.startNewGame(GameConfig(10, 10))
         // To collide with self, we need snake of length >= 5 or turning around
@@ -232,7 +256,7 @@ class SnakeGameEngineTest {
     @Test
     fun testSlowPowerupIncreasesTickIntervalAndExpires() {
         val testSnake = listOf(Position(5, 5), Position(4, 5), Position(3, 5))
-        val engine = SnakeGameEngine(
+        val engine = createEngine(
             initialSnakeProvider = { testSnake },
             foodProvider = { _, _, _ -> Position(0, 0) },
             initialSpecialItemProvider = {
@@ -268,7 +292,7 @@ class SnakeGameEngineTest {
     @Test
     fun testBonusPointsPowerupAddsScore() {
         val testSnake = listOf(Position(5, 5), Position(4, 5), Position(3, 5))
-        val engine = SnakeGameEngine(
+        val engine = createEngine(
             initialSnakeProvider = { testSnake },
             foodProvider = { _, _, _ -> Position(0, 0) },
             initialSpecialItemProvider = {
@@ -290,7 +314,7 @@ class SnakeGameEngineTest {
     @Test
     fun testSpeedUpDowngradeDecreasesTickIntervalAndExpires() {
         val testSnake = listOf(Position(5, 5), Position(4, 5), Position(3, 5))
-        val engine = SnakeGameEngine(
+        val engine = createEngine(
             initialSnakeProvider = { testSnake },
             foodProvider = { _, _, _ -> Position(0, 0) },
             initialSpecialItemProvider = {
@@ -323,7 +347,7 @@ class SnakeGameEngineTest {
     @Test
     fun testInstantDeathDowngradeTriggersGameOver() {
         val testSnake = listOf(Position(5, 5), Position(4, 5), Position(3, 5))
-        val engine = SnakeGameEngine(
+        val engine = createEngine(
             initialSnakeProvider = { testSnake },
             foodProvider = { _, _, _ -> Position(0, 0) },
             initialSpecialItemProvider = {
@@ -341,7 +365,7 @@ class SnakeGameEngineTest {
     @Test
     fun testPointMinusDowngradeDecreasesScore() {
         val testSnake = listOf(Position(5, 5), Position(4, 5), Position(3, 5))
-        val engine = SnakeGameEngine(
+        val engine = createEngine(
             initialSnakeProvider = { testSnake },
             foodProvider = { _, _, _ -> Position(0, 0) },
             initialSpecialItemProvider = {
@@ -357,7 +381,7 @@ class SnakeGameEngineTest {
         // Test with prior points (eating food first)
         var foodIndex = 0
         val foodPositions = listOf(Position(6, 5), Position(7, 5), Position(0, 0), Position(0, 1))
-        val engineWithFood = SnakeGameEngine(
+        val engineWithFood = createEngine(
             initialSnakeProvider = { testSnake },
             foodProvider = { _, _, _ -> foodPositions[foodIndex++] },
             initialSpecialItemProvider = {
@@ -382,7 +406,7 @@ class SnakeGameEngineTest {
     @Test
     fun testSpecialItemDisappearsAfterLifetime() {
         val testSnake = listOf(Position(5, 5), Position(4, 5), Position(3, 5))
-        val engine = SnakeGameEngine(
+        val engine = createEngine(
             initialSnakeProvider = { testSnake },
             foodProvider = { _, _, _ -> Position(0, 0) },
             initialSpecialItemProvider = {
@@ -410,5 +434,100 @@ class SnakeGameEngineTest {
         val item3 = engine.gameState.value.specialItem
         assertEquals(null, item3)
         assertTrue(engine.gameState.value.activeEffects.isEmpty())
+    }
+
+    @Test
+    fun testHighScorePersistenceWithStorage() {
+        val storage = eu.karcags.snake.storage.InMemoryHighScoreStorage(
+            mapOf(Difficulty.EASY to 20, Difficulty.HARD to 50)
+        )
+
+        val testSnake = listOf(Position(5, 5), Position(4, 5), Position(3, 5))
+        var foodIndex = 0
+        val foods = listOf(Position(6, 5), Position(7, 5), Position(8, 5), Position(9, 5))
+
+        val engine = SnakeGameEngine(
+            highScoreStorage = storage,
+            initialSnakeProvider = { testSnake },
+            foodProvider = { _, _, _ -> foods[foodIndex++] }
+        )
+
+        // Starting game on EASY difficulty should load high score of 20
+        foodIndex = 0
+        engine.startNewGame(GameConfig(gridWidth = 20, gridHeight = 20, difficulty = Difficulty.EASY))
+        assertEquals(20, engine.gameState.value.highScore)
+        assertEquals(false, engine.gameState.value.isNewHighScore)
+
+        // Tick 1: Eat food -> score = 10 (not new high score)
+        engine.tick()
+        assertEquals(10, engine.gameState.value.score)
+        assertEquals(20, engine.gameState.value.highScore)
+        assertEquals(false, engine.gameState.value.isNewHighScore)
+
+        // Tick 2: Eat food -> score = 20 (tied, not new high score)
+        engine.tick()
+        assertEquals(20, engine.gameState.value.score)
+        assertEquals(20, engine.gameState.value.highScore)
+        assertEquals(false, engine.gameState.value.isNewHighScore)
+
+        // Tick 3: Eat food -> score = 30 (new high score!)
+        engine.tick()
+        assertEquals(30, engine.gameState.value.score)
+        assertEquals(30, engine.gameState.value.highScore)
+        assertEquals(true, engine.gameState.value.isNewHighScore)
+        assertEquals(30, storage.getHighScore(Difficulty.EASY))
+
+        // Return to menu and check that EASY high score remains 30
+        engine.returnToMenu()
+        assertEquals(30, engine.getHighScore(Difficulty.EASY))
+        assertEquals(50, engine.getHighScore(Difficulty.HARD))
+        assertEquals(50, engine.getHighScores()[Difficulty.HARD])
+    }
+
+    @Test
+    fun testHighScorePerDifficultySeparation() {
+        val storage = eu.karcags.snake.storage.InMemoryHighScoreStorage()
+        val testSnake = listOf(Position(5, 5), Position(4, 5), Position(3, 5))
+
+        val engine = SnakeGameEngine(
+            highScoreStorage = storage,
+            initialSnakeProvider = { testSnake },
+            foodProvider = { _, _, _ -> Position(6, 5) }
+        )
+
+        // Play on Medium
+        engine.startNewGame(GameConfig(gridWidth = 20, gridHeight = 20, difficulty = Difficulty.MEDIUM))
+        assertEquals(0, engine.gameState.value.highScore)
+        engine.tick() // Eat food -> score = 10
+        assertEquals(10, engine.gameState.value.score)
+        assertEquals(10, storage.getHighScore(Difficulty.MEDIUM))
+        assertEquals(0, storage.getHighScore(Difficulty.HARD))
+
+        // Switch to Hard
+        engine.startNewGame(GameConfig(gridWidth = 20, gridHeight = 20, difficulty = Difficulty.HARD))
+        assertEquals(0, engine.gameState.value.highScore)
+        assertEquals(0, engine.gameState.value.score)
+        engine.tick() // Eat food -> score = 10
+        assertEquals(10, storage.getHighScore(Difficulty.HARD))
+    }
+
+    @Test
+    fun testInMemoryHighScoreStorageOperations() {
+        val storage = eu.karcags.snake.storage.InMemoryHighScoreStorage()
+        assertEquals(0, storage.getHighScore(Difficulty.EASY))
+        assertEquals(0, storage.getOverallHighScore())
+
+        storage.saveHighScore(Difficulty.EASY, 40)
+        storage.saveHighScore(Difficulty.MEDIUM, 80)
+        storage.saveHighScore(Difficulty.HARD, 30)
+
+        assertEquals(40, storage.getHighScore(Difficulty.EASY))
+        assertEquals(80, storage.getHighScore(Difficulty.MEDIUM))
+        assertEquals(30, storage.getHighScore(Difficulty.HARD))
+        assertEquals(80, storage.getOverallHighScore())
+
+        // Saving lower score should not overwrite
+        storage.saveHighScore(Difficulty.MEDIUM, 50)
+        assertEquals(80, storage.getHighScore(Difficulty.MEDIUM))
     }
 }

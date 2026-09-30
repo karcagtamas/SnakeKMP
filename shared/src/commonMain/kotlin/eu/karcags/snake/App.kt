@@ -24,6 +24,7 @@ fun App(modifier: Modifier = Modifier) {
                 MainMenuScreen(
                     highScore = gameState.highScore,
                     initialConfig = gameState.config,
+                    highScores = engine.getHighScores(),
                     onStartGame = { config ->
                         engine.startNewGame(config)
                     },
