@@ -2,6 +2,7 @@ package eu.karcags.snake.ui
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.focusable
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -11,6 +12,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.input.key.*
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.unit.dp
 import eu.karcags.snake.game.SnakeGameEngine
 import eu.karcags.snake.model.Direction
@@ -40,57 +42,83 @@ fun GameScreen(
         }
     }
 
-    // Auto-focus keyboard handler
+    // Auto-focus keyboard handler whenever GameScreen mounts or game status changes
     LaunchedEffect(Unit) {
-        focusRequester.requestFocus()
+        try {
+            focusRequester.requestFocus()
+        } catch (_: Exception) {
+        }
+    }
+
+    LaunchedEffect(gameState.status) {
+        try {
+            focusRequester.requestFocus()
+        } catch (_: Exception) {
+        }
     }
 
     Box(
         modifier = modifier
             .fillMaxSize()
             .background(SnakeColors.Background)
-            .focusRequester(focusRequester)
-            .focusable()
-            .onKeyEvent { keyEvent ->
-                keyEvent.type == KeyEventType.KeyDown && when (keyEvent.key) {
-                    Key.DirectionUp, Key.W -> {
-                        engine.changeDirection(Direction.UP)
-                        true
+            .pointerInput(Unit) {
+                detectTapGestures {
+                    try {
+                        focusRequester.requestFocus()
+                    } catch (_: Exception) {
                     }
-
-                    Key.DirectionDown, Key.S -> {
-                        engine.changeDirection(Direction.DOWN)
-                        true
-                    }
-
-                    Key.DirectionLeft, Key.A -> {
-                        engine.changeDirection(Direction.LEFT)
-                        true
-                    }
-
-                    Key.DirectionRight, Key.D -> {
-                        engine.changeDirection(Direction.RIGHT)
-                        true
-                    }
-
-                    Key.Spacebar, Key.P -> {
-                        if (gameState.status == GameStatus.GAME_OVER) {
-                            engine.startNewGame()
-                        } else {
-                            engine.togglePause()
-                        }
-                        true
-                    }
-
-                    Key.Escape -> {
-                        engine.returnToMenu()
-                        onMenuClick()
-                        true
-                    }
-
-                    else -> false
                 }
-            },
+            }
+            .onPreviewKeyEvent { keyEvent ->
+                if (keyEvent.type == KeyEventType.KeyDown) {
+                    when (keyEvent.key) {
+                        Key.DirectionUp, Key.W -> {
+                            engine.changeDirection(Direction.UP)
+                            true
+                        }
+
+                        Key.DirectionDown, Key.S -> {
+                            engine.changeDirection(Direction.DOWN)
+                            true
+                        }
+
+                        Key.DirectionLeft, Key.A -> {
+                            engine.changeDirection(Direction.LEFT)
+                            true
+                        }
+
+                        Key.DirectionRight, Key.D -> {
+                            engine.changeDirection(Direction.RIGHT)
+                            true
+                        }
+
+                        Key.Spacebar, Key.P, Key.Enter, Key.NumPadEnter -> {
+                            if (gameState.status == GameStatus.GAME_OVER) {
+                                engine.startNewGame()
+                            } else {
+                                engine.togglePause()
+                            }
+                            try {
+                                focusRequester.requestFocus()
+                            } catch (_: Exception) {
+                            }
+                            true
+                        }
+
+                        Key.Escape -> {
+                            engine.returnToMenu()
+                            onMenuClick()
+                            true
+                        }
+
+                        else -> false
+                    }
+                } else {
+                    false
+                }
+            }
+            .focusRequester(focusRequester)
+            .focusable(),
         contentAlignment = Alignment.Center
     ) {
         BoxWithConstraints(
@@ -120,7 +148,13 @@ fun GameScreen(
                 // Top HUD
                 HudView(
                     gameState = gameState,
-                    onPauseToggle = { engine.togglePause() },
+                    onPauseToggle = {
+                        engine.togglePause()
+                        try {
+                            focusRequester.requestFocus()
+                        } catch (_: Exception) {
+                        }
+                    },
                     onMenuClick = {
                         engine.returnToMenu()
                         onMenuClick()
@@ -137,7 +171,10 @@ fun GameScreen(
                 DpadControls(
                     onDirection = { dir ->
                         engine.changeDirection(dir)
-                        focusRequester.requestFocus()
+                        try {
+                            focusRequester.requestFocus()
+                        } catch (_: Exception) {
+                        }
                     }
                 )
             }
@@ -147,8 +184,20 @@ fun GameScreen(
         when (gameState.status) {
             GameStatus.PAUSED -> {
                 PauseOverlay(
-                    onResume = { engine.resume() },
-                    onRestart = { engine.startNewGame() },
+                    onResume = {
+                        engine.resume()
+                        try {
+                            focusRequester.requestFocus()
+                        } catch (_: Exception) {
+                        }
+                    },
+                    onRestart = {
+                        engine.startNewGame()
+                        try {
+                            focusRequester.requestFocus()
+                        } catch (_: Exception) {
+                        }
+                    },
                     onMenu = {
                         engine.returnToMenu()
                         onMenuClick()
@@ -158,7 +207,13 @@ fun GameScreen(
             GameStatus.GAME_OVER -> {
                 GameOverOverlay(
                     gameState = gameState,
-                    onPlayAgain = { engine.startNewGame() },
+                    onPlayAgain = {
+                        engine.startNewGame()
+                        try {
+                            focusRequester.requestFocus()
+                        } catch (_: Exception) {
+                        }
+                    },
                     onMenu = {
                         engine.returnToMenu()
                         onMenuClick()
