@@ -166,7 +166,7 @@ class SnakeGameEngine(
 
         var nextSpecialItem: SpecialItem? = currentSpecial
 
-        if (isEatingSpecial && currentSpecial != null) {
+        if (isEatingSpecial) {
             when (currentSpecial.type) {
                 ItemEffectType.INSTANT_DEATH -> {
                     handleGameOver(current.copy(snake = newSnake, direction = nextDirection))

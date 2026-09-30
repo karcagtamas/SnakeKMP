@@ -239,7 +239,8 @@ class SnakeGameEngineTest {
                 SpecialItem(Position(6, 5), ItemEffectType.SLOW, remainingTicks = 20, maxTicks = 20)
             }
         )
-        engine.startNewGame(GameConfig(gridWidth = 10, gridHeight = 10, difficulty = Difficulty.MEDIUM))
+        // Use large grid to avoid hitting walls during long tick loop
+        engine.startNewGame(GameConfig(gridWidth = 100, gridHeight = 100, difficulty = Difficulty.MEDIUM))
 
         val normalInterval = engine.getTickIntervalMs()
         assertEquals(Difficulty.MEDIUM.initialTickMs, normalInterval)
@@ -296,7 +297,8 @@ class SnakeGameEngineTest {
                 SpecialItem(Position(6, 5), ItemEffectType.SPEED_UP, remainingTicks = 15, maxTicks = 15)
             }
         )
-        engine.startNewGame(GameConfig(gridWidth = 10, gridHeight = 10, difficulty = Difficulty.MEDIUM))
+        // Use large grid to avoid hitting walls during long tick loop
+        engine.startNewGame(GameConfig(gridWidth = 100, gridHeight = 100, difficulty = Difficulty.MEDIUM))
 
         val normalInterval = engine.getTickIntervalMs()
         engine.tick() // Head moves to (6, 5) eating SPEED_UP
@@ -352,24 +354,29 @@ class SnakeGameEngineTest {
         engine.tick()
         assertEquals(0, engine.gameState.value.score)
 
-        // Now test with positive score
-        val engineBonus = SnakeGameEngine(
+        // Test with prior points (eating food first)
+        var foodIndex = 0
+        val foodPositions = listOf(Position(6, 5), Position(7, 5), Position(0, 0), Position(0, 1))
+        val engineWithFood = SnakeGameEngine(
             initialSnakeProvider = { testSnake },
-            foodProvider = { _, _, _ -> Position(0, 0) },
+            foodProvider = { _, _, _ -> foodPositions[foodIndex++] },
             initialSpecialItemProvider = {
-                SpecialItem(Position(6, 5), ItemEffectType.BONUS_POINTS, remainingTicks = 10, maxTicks = 10)
-            },
-            specialItemProvider = {
-                SpecialItem(Position(7, 5), ItemEffectType.POINT_MINUS, remainingTicks = 10, maxTicks = 10)
-            },
-            spawnCooldownSupplier = { 0 }
+                SpecialItem(Position(8, 5), ItemEffectType.POINT_MINUS, remainingTicks = 10, maxTicks = 10)
+            }
         )
-        engineBonus.startNewGame(GameConfig(gridWidth = 15, gridHeight = 15))
-        engineBonus.tick() // Eats +30 points at (6, 5) -> specialItem becomes null, spawns next at (7, 5)
-        assertEquals(30, engineBonus.gameState.value.score)
+        foodIndex = 0
+        engineWithFood.startNewGame(GameConfig(gridWidth = 20, gridHeight = 20))
+        // Tick 1: Eats food at (6, 5) -> Score = 10
+        engineWithFood.tick()
+        assertEquals(10, engineWithFood.gameState.value.score)
 
-        engineBonus.tick() // Eats -15 points at (7, 5)
-        assertEquals(15, engineBonus.gameState.value.score)
+        // Tick 2: Eats food at (7, 5) -> Score = 20
+        engineWithFood.tick()
+        assertEquals(20, engineWithFood.gameState.value.score)
+
+        // Tick 3: Eats POINT_MINUS at (8, 5) -> Score = 20 - 15 = 5
+        engineWithFood.tick()
+        assertEquals(5, engineWithFood.gameState.value.score)
     }
 
     @Test
