@@ -18,6 +18,7 @@ import androidx.compose.ui.unit.sp
 import eu.karcags.snake.model.Direction
 import eu.karcags.snake.model.GameState
 import eu.karcags.snake.model.GameStatus
+import eu.karcags.snake.model.ItemEffectType
 
 @Composable
 fun HudView(
@@ -33,89 +34,125 @@ fun HudView(
             .border(1.dp, SnakeColors.Border, RoundedCornerShape(12.dp)),
         color = SnakeColors.Surface
     ) {
-        Row(
+        Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 16.dp, vertical = 10.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
+                .padding(horizontal = 16.dp, vertical = 10.dp)
         ) {
-            // Score and High Score
             Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(16.dp)
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                Column {
-                    Text(
-                        text = "SCORE",
-                        color = SnakeColors.TextMuted,
-                        fontSize = 11.sp,
-                        fontWeight = FontWeight.Bold
-                    )
-                    Text(
-                        text = "${gameState.score}",
-                        color = SnakeColors.TextPrimary,
-                        fontSize = 20.sp,
-                        fontWeight = FontWeight.ExtraBold
-                    )
-                }
-
-                Column {
-                    Text(
-                        text = "BEST 🏆",
-                        color = SnakeColors.AccentGold,
-                        fontSize = 11.sp,
-                        fontWeight = FontWeight.Bold
-                    )
-                    Text(
-                        text = "${gameState.highScore}",
-                        color = SnakeColors.AccentGold,
-                        fontSize = 20.sp,
-                        fontWeight = FontWeight.ExtraBold
-                    )
-                }
-
-                // Difficulty badge
-                Box(
-                    modifier = Modifier
-                        .clip(RoundedCornerShape(6.dp))
-                        .background(SnakeColors.SurfaceVariant)
-                        .padding(horizontal = 8.dp, vertical = 4.dp)
+                // Score and High Score
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(16.dp)
                 ) {
-                    Text(
-                        text = gameState.config.difficulty.label.uppercase(),
-                        color = SnakeColors.Secondary,
-                        fontSize = 11.sp,
-                        fontWeight = FontWeight.Bold
-                    )
+                    Column {
+                        Text(
+                            text = "SCORE",
+                            color = SnakeColors.TextMuted,
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                        Text(
+                            text = "${gameState.score}",
+                            color = SnakeColors.TextPrimary,
+                            fontSize = 20.sp,
+                            fontWeight = FontWeight.ExtraBold
+                        )
+                    }
+
+                    Column {
+                        Text(
+                            text = "BEST 🏆",
+                            color = SnakeColors.AccentGold,
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                        Text(
+                            text = "${gameState.highScore}",
+                            color = SnakeColors.AccentGold,
+                            fontSize = 20.sp,
+                            fontWeight = FontWeight.ExtraBold
+                        )
+                    }
+
+                    // Difficulty badge
+                    Box(
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(6.dp))
+                            .background(SnakeColors.SurfaceVariant)
+                            .padding(horizontal = 8.dp, vertical = 4.dp)
+                    ) {
+                        Text(
+                            text = gameState.config.difficulty.label.uppercase(),
+                            color = SnakeColors.Secondary,
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                }
+
+                // Controls buttons
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Button(
+                        onClick = onPauseToggle,
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = SnakeColors.SurfaceVariant,
+                            contentColor = SnakeColors.TextPrimary
+                        ),
+                        shape = RoundedCornerShape(8.dp)
+                    ) {
+                        Text(
+                            text = if (gameState.status == GameStatus.PAUSED) "▶ Resume" else "⏸ Pause",
+                            fontSize = 13.sp,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                    }
+
+                    OutlinedButton(
+                        onClick = onMenuClick,
+                        shape = RoundedCornerShape(8.dp)
+                    ) {
+                        Text("Menu", fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+                    }
                 }
             }
 
-            // Controls buttons
-            Row(
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Button(
-                    onClick = onPauseToggle,
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = SnakeColors.SurfaceVariant,
-                        contentColor = SnakeColors.TextPrimary
-                    ),
-                    shape = RoundedCornerShape(8.dp)
+            // Active Effects Bar
+            if (gameState.activeEffects.isNotEmpty()) {
+                Spacer(modifier = Modifier.height(6.dp))
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Text(
-                        text = if (gameState.status == GameStatus.PAUSED) "▶ Resume" else "⏸ Pause",
-                        fontSize = 13.sp,
-                        fontWeight = FontWeight.SemiBold
-                    )
-                }
-
-                OutlinedButton(
-                    onClick = onMenuClick,
-                    shape = RoundedCornerShape(8.dp)
-                ) {
-                    Text("Menu", fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+                    gameState.activeEffects.forEach { effect ->
+                        val (bgColor, textColor) = when (effect.type) {
+                            ItemEffectType.SLOW -> Pair(SnakeColors.PowerupSlow.copy(alpha = 0.2f), SnakeColors.PowerupSlow)
+                            ItemEffectType.SPEED_UP -> Pair(SnakeColors.DowngradeSpeed.copy(alpha = 0.2f), SnakeColors.DowngradeSpeed)
+                            else -> Pair(SnakeColors.SurfaceVariant, SnakeColors.TextPrimary)
+                        }
+                        val remainingSec = (effect.remainingTicks / 10).coerceAtLeast(1)
+                        Box(
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(6.dp))
+                                .background(bgColor)
+                                .border(1.dp, textColor.copy(alpha = 0.5f), RoundedCornerShape(6.dp))
+                                .padding(horizontal = 8.dp, vertical = 3.dp)
+                        ) {
+                            Text(
+                                text = "${effect.type.symbol} ${effect.type.label} (${remainingSec}s)",
+                                color = textColor,
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+                    }
                 }
             }
         }

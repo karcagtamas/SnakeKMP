@@ -228,4 +228,180 @@ class SnakeGameEngineTest {
         // Head moves: (3,3) -> R:(4,3) -> U:(4,2) -> L:(3,2) -> D:(3,3) (previous tail had moved away)
         assertEquals(GameStatus.PLAYING, engine.gameState.value.status)
     }
+
+    @Test
+    fun testSlowPowerupIncreasesTickIntervalAndExpires() {
+        val testSnake = listOf(Position(5, 5), Position(4, 5), Position(3, 5))
+        val engine = SnakeGameEngine(
+            initialSnakeProvider = { testSnake },
+            foodProvider = { _, _, _ -> Position(0, 0) },
+            initialSpecialItemProvider = {
+                SpecialItem(Position(6, 5), ItemEffectType.SLOW, remainingTicks = 20, maxTicks = 20)
+            }
+        )
+        engine.startNewGame(GameConfig(gridWidth = 10, gridHeight = 10, difficulty = Difficulty.MEDIUM))
+
+        val normalInterval = engine.getTickIntervalMs()
+        assertEquals(Difficulty.MEDIUM.initialTickMs, normalInterval)
+
+        engine.tick() // head moves to (6, 5) -> consumes SLOW powerup!
+        val stateAfterEating = engine.gameState.value
+        assertEquals(1, stateAfterEating.activeEffects.size)
+        assertEquals(ItemEffectType.SLOW, stateAfterEating.activeEffects.first().type)
+        assertEquals(null, stateAfterEating.specialItem)
+
+        // Slower movement => tick interval should be increased
+        val slowInterval = engine.getTickIntervalMs()
+        assertTrue(slowInterval > normalInterval)
+        assertEquals((normalInterval * 1.6f).toLong(), slowInterval)
+
+        // Tick down until effect expires (duration was 40 ticks)
+        for (i in 1..40) {
+            engine.tick()
+        }
+        val stateAfterExpire = engine.gameState.value
+        assertTrue(stateAfterExpire.activeEffects.none { it.type == ItemEffectType.SLOW })
+        assertEquals(normalInterval, engine.getTickIntervalMs())
+    }
+
+    @Test
+    fun testBonusPointsPowerupAddsScore() {
+        val testSnake = listOf(Position(5, 5), Position(4, 5), Position(3, 5))
+        val engine = SnakeGameEngine(
+            initialSnakeProvider = { testSnake },
+            foodProvider = { _, _, _ -> Position(0, 0) },
+            initialSpecialItemProvider = {
+                SpecialItem(Position(6, 5), ItemEffectType.BONUS_POINTS, remainingTicks = 10, maxTicks = 10)
+            }
+        )
+        engine.startNewGame(GameConfig(gridWidth = 10, gridHeight = 10))
+
+        assertEquals(0, engine.gameState.value.score)
+        engine.tick() // Head moves to (6, 5) eating BONUS_POINTS
+
+        assertEquals(30, engine.gameState.value.score)
+        assertEquals(30, engine.gameState.value.highScore)
+        assertTrue(engine.gameState.value.isNewHighScore)
+        assertEquals(3, engine.gameState.value.snake.size) // Snake did not grow
+        assertEquals(null, engine.gameState.value.specialItem)
+    }
+
+    @Test
+    fun testSpeedUpDowngradeDecreasesTickIntervalAndExpires() {
+        val testSnake = listOf(Position(5, 5), Position(4, 5), Position(3, 5))
+        val engine = SnakeGameEngine(
+            initialSnakeProvider = { testSnake },
+            foodProvider = { _, _, _ -> Position(0, 0) },
+            initialSpecialItemProvider = {
+                SpecialItem(Position(6, 5), ItemEffectType.SPEED_UP, remainingTicks = 15, maxTicks = 15)
+            }
+        )
+        engine.startNewGame(GameConfig(gridWidth = 10, gridHeight = 10, difficulty = Difficulty.MEDIUM))
+
+        val normalInterval = engine.getTickIntervalMs()
+        engine.tick() // Head moves to (6, 5) eating SPEED_UP
+
+        val stateAfter = engine.gameState.value
+        assertEquals(1, stateAfter.activeEffects.size)
+        assertEquals(ItemEffectType.SPEED_UP, stateAfter.activeEffects.first().type)
+
+        val fastInterval = engine.getTickIntervalMs()
+        assertTrue(fastInterval < normalInterval)
+        assertEquals((normalInterval * 0.6f).toLong(), fastInterval)
+
+        // Tick down until effect expires (duration was 35 ticks)
+        for (i in 1..35) {
+            engine.tick()
+        }
+        val expiredState = engine.gameState.value
+        assertTrue(expiredState.activeEffects.none { it.type == ItemEffectType.SPEED_UP })
+        assertEquals(normalInterval, engine.getTickIntervalMs())
+    }
+
+    @Test
+    fun testInstantDeathDowngradeTriggersGameOver() {
+        val testSnake = listOf(Position(5, 5), Position(4, 5), Position(3, 5))
+        val engine = SnakeGameEngine(
+            initialSnakeProvider = { testSnake },
+            foodProvider = { _, _, _ -> Position(0, 0) },
+            initialSpecialItemProvider = {
+                SpecialItem(Position(6, 5), ItemEffectType.INSTANT_DEATH, remainingTicks = 10, maxTicks = 10)
+            }
+        )
+        engine.startNewGame(GameConfig(gridWidth = 10, gridHeight = 10))
+
+        assertEquals(GameStatus.PLAYING, engine.gameState.value.status)
+        engine.tick() // Head moves to (6, 5) -> Instant death!
+
+        assertEquals(GameStatus.GAME_OVER, engine.gameState.value.status)
+    }
+
+    @Test
+    fun testPointMinusDowngradeDecreasesScore() {
+        val testSnake = listOf(Position(5, 5), Position(4, 5), Position(3, 5))
+        val engine = SnakeGameEngine(
+            initialSnakeProvider = { testSnake },
+            foodProvider = { _, _, _ -> Position(0, 0) },
+            initialSpecialItemProvider = {
+                SpecialItem(Position(6, 5), ItemEffectType.POINT_MINUS, remainingTicks = 10, maxTicks = 10)
+            }
+        )
+        engine.startNewGame(GameConfig(gridWidth = 10, gridHeight = 10))
+
+        // Start with 0 score -> eating POINT_MINUS keeps score at 0
+        engine.tick()
+        assertEquals(0, engine.gameState.value.score)
+
+        // Now test with positive score
+        val engineBonus = SnakeGameEngine(
+            initialSnakeProvider = { testSnake },
+            foodProvider = { _, _, _ -> Position(0, 0) },
+            initialSpecialItemProvider = {
+                SpecialItem(Position(6, 5), ItemEffectType.BONUS_POINTS, remainingTicks = 10, maxTicks = 10)
+            },
+            specialItemProvider = {
+                SpecialItem(Position(7, 5), ItemEffectType.POINT_MINUS, remainingTicks = 10, maxTicks = 10)
+            },
+            spawnCooldownSupplier = { 0 }
+        )
+        engineBonus.startNewGame(GameConfig(gridWidth = 15, gridHeight = 15))
+        engineBonus.tick() // Eats +30 points at (6, 5) -> specialItem becomes null, spawns next at (7, 5)
+        assertEquals(30, engineBonus.gameState.value.score)
+
+        engineBonus.tick() // Eats -15 points at (7, 5)
+        assertEquals(15, engineBonus.gameState.value.score)
+    }
+
+    @Test
+    fun testSpecialItemDisappearsAfterLifetime() {
+        val testSnake = listOf(Position(5, 5), Position(4, 5), Position(3, 5))
+        val engine = SnakeGameEngine(
+            initialSnakeProvider = { testSnake },
+            foodProvider = { _, _, _ -> Position(0, 0) },
+            initialSpecialItemProvider = {
+                SpecialItem(Position(2, 2), ItemEffectType.SLOW, remainingTicks = 3, maxTicks = 3)
+            },
+            spawnCooldownSupplier = { 100 }
+        )
+        engine.startNewGame(GameConfig(gridWidth = 10, gridHeight = 10))
+
+        // Snake moves away: (5,5) -> (6,5)
+        // Tick 1: item remainingTicks becomes 2
+        engine.tick()
+        val item1 = engine.gameState.value.specialItem
+        assertTrue(item1 != null)
+        assertEquals(2, item1.remainingTicks)
+
+        // Tick 2: remainingTicks becomes 1
+        engine.tick()
+        val item2 = engine.gameState.value.specialItem
+        assertTrue(item2 != null)
+        assertEquals(1, item2.remainingTicks)
+
+        // Tick 3: item expires (remaining <= 0) and disappears
+        engine.tick()
+        val item3 = engine.gameState.value.specialItem
+        assertEquals(null, item3)
+        assertTrue(engine.gameState.value.activeEffects.isEmpty())
+    }
 }

@@ -219,7 +219,7 @@ fun MainMenuScreen(
                     )
                 }
 
-                // Controls Instructions
+                // Controls Instructions & Items Legend
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -240,18 +240,47 @@ fun MainMenuScreen(
                         fontSize = 12.sp
                     )
                     Text(
-                        text = "• Touch / Mouse: Use on-screen D-Pad",
+                        text = "• Touch / Mouse: On-screen D-Pad",
                         color = SnakeColors.TextSecondary,
                         fontSize = 12.sp
                     )
                     Text(
-                        text = "• Pause: Spacebar or Pause button",
+                        text = "• Pause / Restart: Spacebar or Enter",
                         color = SnakeColors.TextSecondary,
                         fontSize = 12.sp
                     )
+
+                    Spacer(modifier = Modifier.height(4.dp))
+
                     Text(
-                        text = "• Eat apples to grow and avoid hitting walls or yourself!",
-                        color = SnakeColors.TextSecondary,
+                        text = "SPECIAL ITEMS (Disappear after a few seconds)",
+                        color = SnakeColors.TextMuted,
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                    Text(
+                        text = "• ❄️ Slow: Slows down snake temporarily",
+                        color = SnakeColors.PowerupSlow,
+                        fontSize = 12.sp
+                    )
+                    Text(
+                        text = "• ⭐ +30 Pts: Gives bonus score",
+                        color = SnakeColors.PowerupBonus,
+                        fontSize = 12.sp
+                    )
+                    Text(
+                        text = "• ⚡ Speed Up: Temporarily speeds up snake",
+                        color = SnakeColors.DowngradeSpeed,
+                        fontSize = 12.sp
+                    )
+                    Text(
+                        text = "• 💀 Death: Instant game over hazard!",
+                        color = SnakeColors.DowngradeDeath,
+                        fontSize = 12.sp
+                    )
+                    Text(
+                        text = "• 🔻 -15 Pts: Decreases current score",
+                        color = SnakeColors.DowngradeMinus,
                         fontSize = 12.sp
                     )
                 }
